@@ -15,7 +15,6 @@ load_dotenv(BASE_DIR / ".env")
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 def get_weather(city: str, unit: str = "metric"):
-    print("GET_WEATHER_API_KEY:", API_KEY)
 
     if not API_KEY:
         return {
