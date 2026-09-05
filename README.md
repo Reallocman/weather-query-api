@@ -347,3 +347,7 @@ The OpenWeatherMap API key and other configuration values are loaded from enviro
 Never commit the `.env` file or real API keys to the repository.
 
 Use `.env.sample` as the configuration template.
+
+## Original assignment
+
+The original technical assignment is available in [`docs/test-assignment.docx`](docs/test-assignment.docx).
