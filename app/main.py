@@ -12,8 +12,6 @@ import logging
 import time
 
 from fastapi import Request
-from app.database import Base
-from app.database import engine
 
 from app.routes.weather import router as weather_router
 from app.routes.health import router as health_router
@@ -26,7 +24,6 @@ logging.basicConfig(
 logger = logging.getLogger("weather_app")
 app = FastAPI()
 
-#Base.metadata.create_all(bind=engine)
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.perf_counter()

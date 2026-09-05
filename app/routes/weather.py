@@ -7,6 +7,7 @@ from io import StringIO
 
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import HTTPException
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from slowapi import Limiter
@@ -30,7 +31,7 @@ def get_db():
         db.close()
 RATE_LIMIT = os.getenv("RATE_LIMIT", "30/minute")
 
-limiter = Limiter(key_func=get_remote_address)
+
 @router.get("/weather/{city}")
 @limiter.limit(RATE_LIMIT)
 def weather(
@@ -40,9 +41,10 @@ def weather(
     db: Session = Depends(get_db)
 ):
     if unit not in ["metric", "imperial"]:
-        return {
-            "error": "Invalid unit. Use 'metric' for Celsius or 'imperial' for Fahrenheit."
-        }
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid unit. Use 'metric' for Celsius or 'imperial' for Fahrenheit."
+        )
 
     latest_query = (
         db.query(WeatherQuery)
@@ -83,9 +85,6 @@ def weather(
 
     weather_data = get_weather(city, unit)
 
-    if weather_data.get("cod") != 200:
-        return weather_data
-
     new_query = WeatherQuery(
         city=city,
         temperature=weather_data["main"]["temp"],
@@ -111,8 +110,8 @@ def history(
     limit: int = 10,
     offset: int = 0,
     city: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(WeatherQuery)
@@ -123,20 +122,13 @@ def history(
         )
 
     if date_from:
-        parsed_date_from = datetime.fromisoformat(date_from)
-
         query = query.filter(
-            WeatherQuery.created_at >= parsed_date_from
+            WeatherQuery.created_at >= date_from
         )
 
     if date_to:
-        parsed_date_to = (
-            datetime.fromisoformat(date_to)
-            + timedelta(days=1)
-        )
-
         query = query.filter(
-            WeatherQuery.created_at < parsed_date_to
+            WeatherQuery.created_at < date_to + timedelta(days=1)
         )
 
     total = query.count()
@@ -160,8 +152,8 @@ def history(
 @router.get("/history/export")
 def export_history(
     city: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(WeatherQuery)
@@ -172,20 +164,13 @@ def export_history(
         )
 
     if date_from:
-        parsed_date_from = datetime.fromisoformat(date_from)
-
         query = query.filter(
-            WeatherQuery.created_at >= parsed_date_from
+            WeatherQuery.created_at >= date_from
         )
 
     if date_to:
-        parsed_date_to = (
-            datetime.fromisoformat(date_to)
-            + timedelta(days=1)
-        )
-
         query = query.filter(
-            WeatherQuery.created_at < parsed_date_to
+            WeatherQuery.created_at < date_to + timedelta(days=1)
         )
 
     queries = (

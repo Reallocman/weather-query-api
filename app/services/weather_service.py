@@ -3,6 +3,7 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 import json
 import logging
@@ -17,10 +18,10 @@ API_KEY = os.getenv("OPENWEATHER_API_KEY")
 def get_weather(city: str, unit: str = "metric"):
 
     if not API_KEY:
-        return {
-            "cod": 500,
-            "message": "OPENWEATHER_API_KEY is missing"
-        }
+        raise HTTPException(
+            status_code=500,
+            detail="OPENWEATHER_API_KEY is missing"
+        )
 
     url = "https://api.openweathermap.org/data/2.5/weather"
 
@@ -30,11 +31,35 @@ def get_weather(city: str, unit: str = "metric"):
         "units": unit
     }
     start_time = time.perf_counter()
-    response = requests.get(
-        url,
-        params=params,
-        timeout=5
-    )
+
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            timeout=5
+        )
+    except requests.exceptions.RequestException as exc:
+        latency_ms = round(
+            (time.perf_counter() - start_time) * 1000,
+            2
+        )
+
+        logger.info(
+            json.dumps({
+                "event": "external_api_call",
+                "service": "openweather",
+                "city": city,
+                "unit": unit,
+                "status_code": None,
+                "latency_ms": latency_ms
+            })
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to reach the weather service"
+        ) from exc
+
     latency_ms = round(
         (time.perf_counter() - start_time) * 1000,
         2
@@ -50,6 +75,14 @@ def get_weather(city: str, unit: str = "metric"):
             "latency_ms": latency_ms
         })
     )
-    response.raise_for_status()
+
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="City not found")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail="Weather service returned an error"
+        )
 
     return response.json()  # noqa
